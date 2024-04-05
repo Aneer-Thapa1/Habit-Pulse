@@ -11,6 +11,25 @@ const signup = async (req, res) => {
     if (!user_name || !user_email || !password) {
       return res.status(400).json({ error: "Please fill all the fields!" });
     }
+    const getUser = "SELECT * FROM USERS WHERE user_email = ?";
+
+    if (result.length > 0) {
+      return res
+        .status(500)
+        .json({ error: "User with this email already exists!" });
+    }
+
+    db.query(getUser, [user_email], (error, result) => {
+      if (error) {
+        return res.status(500).json({ error: "Internal Server Error!" });
+      }
+
+      if (result.length === 0) {
+        return res
+          .status(500)
+          .json({ error: "User with this email is not registered!" });
+      }
+    });
 
     const hashedPassword = bcrypt.hashSync(password, 10);
 
@@ -46,6 +65,20 @@ const login = async (req, res) => {
     if (!user_email || !password) {
       return res.status(400).json({ error: "Please fill all the fields!" });
     }
+
+    const getUser = "SELECT * FROM USERS WHERE user_email = ?";
+
+    db.query(getUser, [user_email], (error, result) => {
+      if (error) {
+        return res.status(500).json({ error: "Internal Server Error!" });
+      }
+
+      if (result.length === 0) {
+        return res
+          .status(500)
+          .json({ error: "User with this email is not registered!" });
+      }
+    });
   } catch (error) {
     console.log(error);
     return res.status(500).json({ error: error });
