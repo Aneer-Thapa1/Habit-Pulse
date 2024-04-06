@@ -9,3 +9,4 @@ router.post("/signup", authRoute.signup);
 
 // Blog Route
 router.post("./addBlog", blogRoute.addBlog);
+router.post("./addBlog", blogRoute.getBlog);
