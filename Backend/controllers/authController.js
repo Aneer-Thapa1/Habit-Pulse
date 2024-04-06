@@ -1,8 +1,6 @@
-// importing required libraries
 const db = require("../config/dbConfig");
 const bcrypt = require("bcrypt");
-
-// Controller for signup
+const jwt = require("jsonwebtoken");
 
 const signup = async (req, res) => {
   try {
@@ -11,52 +9,45 @@ const signup = async (req, res) => {
     if (!user_name || !user_email || !password) {
       return res.status(400).json({ error: "Please fill all the fields!" });
     }
-    const getUser = "SELECT * FROM USERS WHERE user_email = ?";
 
-    if (result.length > 0) {
-      return res
-        .status(500)
-        .json({ error: "User with this email already exists!" });
-    }
+    const getUserQuery = "SELECT * FROM users WHERE user_email = ?";
 
-    db.query(getUser, [user_email], (error, result) => {
+    db.query(getUserQuery, [user_email], (error, result) => {
       if (error) {
         return res.status(500).json({ error: "Internal Server Error!" });
       }
 
-      if (result.length === 0) {
+      if (result.length > 0) {
         return res
-          .status(500)
-          .json({ error: "User with this email is not registered!" });
+          .status(409)
+          .json({ error: "User with this email already exists!" });
       }
-    });
 
-    const hashedPassword = bcrypt.hashSync(password, 10);
+      const hashedPassword = bcrypt.hashSync(password, 10);
 
-    const user = {
-      user_name: user_name,
-      user_email: user_email,
-      password: hashedPassword,
-    };
+      const newUser = {
+        user_name: user_name,
+        user_email: user_email,
+        password: hashedPassword,
+      };
 
-    const insertUserQuery = "INSERT INTO users SET ?";
+      const insertUserQuery = "INSERT INTO users SET ?";
 
-    db.query(insertUserQuery, [user], (error, result) => {
-      if (error) {
-        return res.status(500).json({ error: "Internal Server Error" });
-      } else {
-        return res.status(200).json({ message: "User signed up successfully" });
-      }
+      db.query(insertUserQuery, [newUser], (insertError, insertResult) => {
+        if (insertError) {
+          return res.status(500).json({ error: "Internal Server Error" });
+        } else {
+          return res
+            .status(201)
+            .json({ message: "User signed up successfully" });
+        }
+      });
     });
   } catch (error) {
     console.log(error);
     return res.status(500).json({ error: "Internal Server Error!" });
   }
 };
-
-// controller of signup ends here
-
-// controller of login starts here
 
 const login = async (req, res) => {
   try {
@@ -66,21 +57,36 @@ const login = async (req, res) => {
       return res.status(400).json({ error: "Please fill all the fields!" });
     }
 
-    const getUser = "SELECT * FROM USERS WHERE user_email = ?";
+    const getUserQuery = "SELECT * FROM users WHERE user_email = ?";
 
-    db.query(getUser, [user_email], (error, result) => {
+    db.query(getUserQuery, [user_email], (error, result) => {
       if (error) {
         return res.status(500).json({ error: "Internal Server Error!" });
       }
 
       if (result.length === 0) {
         return res
-          .status(500)
+          .status(404)
           .json({ error: "User with this email is not registered!" });
       }
+
+      const user = result[0];
+
+      const isMatched = bcrypt.compareSync(password, user.password);
+      if (!isMatched) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+
+      const token = jwt.sign({ userId: user.user_id }, "Habitpulsekey", {
+        expiresIn: "2d",
+      });
+
+      return res.status(200).json({ message: "Login successful", token });
     });
   } catch (error) {
     console.log(error);
-    return res.status(500).json({ error: error });
+    return res.status(500).json({ error: "Internal Server Error!" });
   }
 };
+
+module.exports = { signup, login };
